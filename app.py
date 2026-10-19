@@ -7,14 +7,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from backend import run_travel_agent, resume_travel_agent
-
-# This is kept from the original project to allow the existing synchronous
-# agent functions to call async MCP helpers inside FastAPI.
-import nest_asyncio
-
-nest_asyncio.apply()
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -70,7 +65,8 @@ async def travel_planner(request_data: TravelRequest):
                 },
             )
 
-        result = run_travel_agent(
+        result = await run_in_threadpool(
+            run_travel_agent,
             user_input=user_message,
             thread_id=request_data.thread_id,
         )
@@ -107,7 +103,8 @@ async def approve_travel_plan(request_data: ApprovalRequest):
                 },
             )
 
-        result = resume_travel_agent(
+        result = await run_in_threadpool(
+            resume_travel_agent,
             thread_id=request_data.thread_id,
             approved=request_data.approved,
             feedback=request_data.feedback,
@@ -136,7 +133,7 @@ async def approve_travel_plan(request_data: ApprovalRequest):
 @app.get("/health")
 async def health_check():
     return {
-        "status": "ok",
+        "status": "ok", 
         "message": "TripMate AI API is running",
         "features": [
             "supervisor_agent",
@@ -154,7 +151,7 @@ async def favicon():
 if __name__ == "__main__":
     uvicorn.run(
         "app:app",
-        host="0.0.0.0",
+        host="127.0.0.1",
         port=8000,
         reload=True,
     )
